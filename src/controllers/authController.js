@@ -20,7 +20,8 @@ function login(req, res) {
       access_type: 'offline',
       scope: SCOPES,
       prompt: 'consent', // Force refresh token
-      // state: 'random_state_string' // Should implement state for security
+      // FIX: Explicitly pass redirect_uri here to ensure it's included in the request
+      redirect_uri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:8080/api/auth/google/callback'
     });
     console.log('Redirecting to Google Auth URL:', authUrl);
     res.redirect(authUrl);
