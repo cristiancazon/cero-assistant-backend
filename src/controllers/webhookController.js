@@ -1,16 +1,12 @@
 const geminiService = require('../services/geminiService');
 const tokenStore = require('../utils/tokenStore');
 
-// Simple in-memory cache for idempotency
-const processedRequests = new Set();
-
 async function handleElevenLabsWebhook(req, res) {
   const start = Date.now();
-  console.log('--- NEW WEBHOOK REQUEST ---');
+  console.log('--- NEW WEBHOOK REQUEST (JSON MODE) ---');
   
   try {
     let text = req.body.text;
-    const conversation_id = req.body.conversation_id;
     let history = [];
 
     // --- 1. Extract Text and History ---
@@ -36,6 +32,9 @@ async function handleElevenLabsWebhook(req, res) {
         if (lastMessage && lastMessage.content) {
             text = lastMessage.content;
         }
+    } else if (!text && req.body.prompt) {
+        // Fallback for simple prompt
+        text = req.body.prompt;
     }
 
     console.log(`[${Date.now() - start}ms] Text extracted: "${text}"`);
@@ -43,7 +42,7 @@ async function handleElevenLabsWebhook(req, res) {
     // --- 2. Input Validation ---
     if (!text) {
         console.warn("No text found. Sending default response.");
-        return sendStreamResponse(res, "No te entendí, ¿puedes repetir?");
+        return res.json({ response: "No te entendí, ¿puedes repetir?", continue: true });
     }
 
     // --- 3. History Sanitization ---
@@ -65,7 +64,10 @@ async function handleElevenLabsWebhook(req, res) {
 
     if (!authTokens) {
         console.log("No auth tokens. Sending auth prompt.");
-        return sendStreamResponse(res, "Por favor, inicia sesión en la web para continuar.");
+        return res.json({ 
+            response: "Por favor, inicia sesión en la web para continuar. Necesito acceso a tu calendario.", 
+            continue: false 
+        });
     }
 
     // --- 5. Process with Gemini ---
@@ -79,65 +81,23 @@ async function handleElevenLabsWebhook(req, res) {
 
     if (!responseText) responseText = "Lo siento, tuve un problema.";
 
-    // --- 6. Send Response (Streaming) ---
-    console.log(`[${Date.now() - start}ms] Starting stream response...`);
-    await sendStreamResponse(res, responseText);
-    console.log(`[${Date.now() - start}ms] Stream finished & Request completed.`);
+    // --- 6. Send Response (JSON Standard) ---
+    // This is the format ElevenLabs expects for non-streaming Custom LLM
+    const jsonResponse = {
+        response: responseText,
+        continue: true
+    };
+    
+    console.log(`[${Date.now() - start}ms] Sending JSON response...`);
+    res.json(jsonResponse);
 
   } catch (error) {
     console.error('Error handling webhook:', error);
-    if (!res.headersSent) {
-        sendStreamResponse(res, "Ocurrió un error técnico.");
-    } else {
-        res.end();
-    }
+    res.status(500).json({ 
+        response: "Ocurrió un error técnico en mi cerebro. Intenta de nuevo.", 
+        continue: false 
+    });
   }
-}
-
-// Helper for consistent streaming
-async function sendStreamResponse(res, text) {
-    if (!res.headersSent) {
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.setHeader('X-Accel-Buffering', 'no'); 
-    }
-
-    const chunkId = "chatcmpl-" + Date.now();
-    const created = Math.floor(Date.now() / 1000);
-
-    // SIMPLE STRATEGY: Send the entire response in ONE SINGLE CHUNK
-    // This is the most reliable way to ensure ElevenLabs reads the full sentence.
-    
-    const chunk = {
-        id: chunkId,
-        object: "chat.completion.chunk",
-        created: created,
-        model: "gemini-proxy",
-        choices: [{ 
-            index: 0, 
-            delta: { content: text }, // FULL TEXT
-            finish_reason: null 
-        }]
-    };
-    
-    res.write(`data: ${JSON.stringify(chunk)}\n\n`);
-    
-    // Tiny delay just to be safe before closing
-    await new Promise(r => setTimeout(r, 50));
-
-    // Finish
-    const finish = {
-        id: chunkId,
-        object: "chat.completion.chunk",
-        created: created,
-        model: "gemini-proxy",
-        choices: [{ index: 0, delta: {}, finish_reason: "stop" }]
-    };
-    res.write(`data: ${JSON.stringify(finish)}\n\n`);
-    res.write(`data: [DONE]\n\n`);
-    
-    res.end();
 }
 
 module.exports = {
