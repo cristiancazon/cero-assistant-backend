@@ -77,16 +77,13 @@ async function handleElevenLabsWebhook(req, res) {
         return res.json(response);
     }
 
-    // --- 5. Process with Gemini ---
-    console.log(`[${requestId}] [${Date.now() - start}ms] Sending to Gemini...`);
-    let responseText = await geminiService.processUserMessage(text, history, authTokens);
+    // --- 5. Process with Gemini (BYPASSED FOR DIAGNOSIS) ---
+    console.log(`[${requestId}] [${Date.now() - start}ms] BYPASSING GEMINI FOR DIAGNOSIS...`);
     
-    // Clean up text: Remove markdown, asterisks, excessive whitespace
-    responseText = responseText.replace(/\*/g, '').replace(/\s+/g, ' ').trim();
+    // Simulating immediate response to test ElevenLabs connection stability
+    let responseText = "Conexión exitosa con el servidor Cero. El sistema de voz está funcionando correctamente. ¿En qué te ayudo con tu agenda?";
     
-    console.log(`[${requestId}] [${Date.now() - start}ms] Gemini response (cleaned): "${responseText}"`);
-
-    if (!responseText) responseText = "Lo siento, tuve un problema.";
+    console.log(`[${requestId}] [${Date.now() - start}ms] Response ready: "${responseText}"`);
 
     // --- 6. Send Response (JSON Standard) ---
     const jsonResponse = {
