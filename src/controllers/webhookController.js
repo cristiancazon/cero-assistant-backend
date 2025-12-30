@@ -3,7 +3,10 @@ const tokenStore = require('../utils/tokenStore');
 
 async function handleElevenLabsWebhook(req, res) {
   const start = Date.now();
-  console.log('--- NEW WEBHOOK REQUEST (JSON MODE) ---');
+  const requestId = Math.random().toString(36).substring(7);
+  console.log(`[${requestId}] --- NEW WEBHOOK REQUEST ---`);
+  console.log(`[${requestId}] Headers:`, JSON.stringify(req.headers));
+  console.log(`[${requestId}] Body:`, JSON.stringify(req.body, null, 2)); // Pretty print body
   
   try {
     let text = req.body.text;
@@ -37,12 +40,14 @@ async function handleElevenLabsWebhook(req, res) {
         text = req.body.prompt;
     }
 
-    console.log(`[${Date.now() - start}ms] Text extracted: "${text}"`);
+    console.log(`[${requestId}] Text extracted: "${text}"`);
 
     // --- 2. Input Validation ---
     if (!text) {
-        console.warn("No text found. Sending default response.");
-        return res.json({ response: "No te entendí, ¿puedes repetir?", continue: true });
+        console.warn(`[${requestId}] No text found. Sending default response.`);
+        const response = { response: "No te entendí, ¿puedes repetir?", continue: true };
+        console.log(`[${requestId}] Sending Response:`, JSON.stringify(response));
+        return res.json(response);
     }
 
     // --- 3. History Sanitization ---
@@ -63,36 +68,37 @@ async function handleElevenLabsWebhook(req, res) {
     }
 
     if (!authTokens) {
-        console.log("No auth tokens. Sending auth prompt.");
-        return res.json({ 
+        console.log(`[${requestId}] No auth tokens. Sending auth prompt.`);
+        const response = { 
             response: "Por favor, inicia sesión en la web para continuar. Necesito acceso a tu calendario.", 
             continue: false 
-        });
+        };
+        console.log(`[${requestId}] Sending Response:`, JSON.stringify(response));
+        return res.json(response);
     }
 
     // --- 5. Process with Gemini ---
-    console.log(`[${Date.now() - start}ms] Sending to Gemini...`);
+    console.log(`[${requestId}] [${Date.now() - start}ms] Sending to Gemini...`);
     let responseText = await geminiService.processUserMessage(text, history, authTokens);
     
     // Clean up text: Remove markdown, asterisks, excessive whitespace
     responseText = responseText.replace(/\*/g, '').replace(/\s+/g, ' ').trim();
     
-    console.log(`[${Date.now() - start}ms] Gemini response (cleaned): "${responseText}"`);
+    console.log(`[${requestId}] [${Date.now() - start}ms] Gemini response (cleaned): "${responseText}"`);
 
     if (!responseText) responseText = "Lo siento, tuve un problema.";
 
     // --- 6. Send Response (JSON Standard) ---
-    // This is the format ElevenLabs expects for non-streaming Custom LLM
     const jsonResponse = {
         response: responseText,
         continue: true
     };
     
-    console.log(`[${Date.now() - start}ms] Sending JSON response...`);
+    console.log(`[${requestId}] [${Date.now() - start}ms] Sending JSON response:`, JSON.stringify(jsonResponse));
     res.json(jsonResponse);
 
   } catch (error) {
-    console.error('Error handling webhook:', error);
+    console.error(`[${requestId}] Error handling webhook:`, error);
     res.status(500).json({ 
         response: "Ocurrió un error técnico en mi cerebro. Intenta de nuevo.", 
         continue: false 
