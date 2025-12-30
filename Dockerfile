@@ -22,5 +22,8 @@ COPY . .
 # The app code must listen on this port.
 ENV PORT=8080
 
+# Expose the port explicitly
+EXPOSE 8080
+
 # Run the web service on container startup.
 CMD [ "npm", "start" ]
