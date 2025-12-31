@@ -5,8 +5,9 @@ async function handleElevenLabsWebhook(req, res) {
   const start = Date.now();
   const requestId = Math.random().toString(36).substring(7);
   console.log(`[${requestId}] --- NEW WEBHOOK REQUEST ---`);
+  // Log summary instead of full body to avoid spam/truncation
   console.log(`[${requestId}] Headers:`, JSON.stringify(req.headers));
-  console.log(`[${requestId}] Body:`, JSON.stringify(req.body, null, 2)); // Pretty print body
+  console.log(`[${requestId}] Body Keys:`, Object.keys(req.body));
   
   try {
     let text = req.body.text;
@@ -15,7 +16,13 @@ async function handleElevenLabsWebhook(req, res) {
     // --- 1. Extract Text and History ---
     if (!text && req.body.input && Array.isArray(req.body.input)) {
         // "input" format (Custom LLM standard)
-        const validMessages = req.body.input.filter(msg => msg.role !== 'system' && msg.content);
+        // Filter out system messages AND messages that look like system prompts (long, contain "Task description")
+        const validMessages = req.body.input.filter(msg => {
+            if (msg.role === 'system') return false;
+            if (msg.content && msg.content.includes("Task description:")) return false;
+            return !!msg.content;
+        });
+        
         const lastMsg = validMessages[validMessages.length - 1];
         
         if (lastMsg && lastMsg.role === 'user') {
