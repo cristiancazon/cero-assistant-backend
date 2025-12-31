@@ -111,19 +111,23 @@ async function handleElevenLabsWebhook(req, res) {
     console.log(`[${requestId}] [${Date.now() - start}ms] Gemini response (cleaned): "${responseText}"`);
 
     // --- 6. Send Response (JSON Standard) ---
+    // Only 'response' is strictly required. 'continue' is implicit.
     const jsonResponse = {
-        response: responseText,
-        continue: true
+        response: responseText
     };
     
     console.log(`[${requestId}] [${Date.now() - start}ms] Sending JSON response:`, JSON.stringify(jsonResponse));
+    
+    // Explicitly set headers to avoid any ambiguity
+    res.setHeader('Content-Type', 'application/json');
     res.json(jsonResponse);
 
   } catch (error) {
     console.error(`[${requestId}] Error handling webhook:`, error);
-    res.status(500).json({ 
-        response: "Ocurrió un error técnico en mi cerebro. Intenta de nuevo.", 
-        continue: false 
+    // Even in total failure, return a valid JSON so ElevenLabs speaks the error
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json({ 
+        response: "Ocurrió un error técnico crítico en el servidor." 
     });
   }
 }
