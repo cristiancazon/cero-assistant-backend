@@ -77,13 +77,38 @@ async function handleElevenLabsWebhook(req, res) {
         return res.json(response);
     }
 
-    // --- 5. Process with Gemini (BYPASSED FOR DIAGNOSIS) ---
-    console.log(`[${requestId}] [${Date.now() - start}ms] BYPASSING GEMINI FOR DIAGNOSIS...`);
+    // --- 5. Process with Gemini (Restored with Timeout Protection) ---
+    console.log(`[${requestId}] [${Date.now() - start}ms] Sending to Gemini...`);
     
-    // Simulating immediate response to test ElevenLabs connection stability
-    let responseText = "Conexión exitosa con el servidor Cero. El sistema de voz está funcionando correctamente. ¿En qué te ayudo con tu agenda?";
+    // Create a promise that rejects/resolves after 5 seconds to prevent ElevenLabs timeout
+    const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Gemini Timeout")), 5000);
+    });
+
+    let responseText;
+    try {
+        // Race between Gemini and Timeout
+        responseText = await Promise.race([
+            geminiService.processUserMessage(text, history, authTokens),
+            timeoutPromise
+        ]);
+    } catch (err) {
+        console.error(`[${requestId}] Gemini/Timeout Error:`, err);
+        if (err.message === "Gemini Timeout") {
+            responseText = "Lo siento, estoy tardando un poco más de lo normal en pensar. ¿Podrías repetirme eso?";
+        } else {
+            responseText = "Tuve un pequeño problema técnico procesando eso.";
+        }
+    }
     
-    console.log(`[${requestId}] [${Date.now() - start}ms] Response ready: "${responseText}"`);
+    // Clean up text: Remove markdown, asterisks, excessive whitespace
+    if (responseText) {
+        responseText = responseText.replace(/\*/g, '').replace(/\s+/g, ' ').trim();
+    } else {
+        responseText = "No pude generar una respuesta.";
+    }
+    
+    console.log(`[${requestId}] [${Date.now() - start}ms] Gemini response (cleaned): "${responseText}"`);
 
     // --- 6. Send Response (JSON Standard) ---
     const jsonResponse = {
