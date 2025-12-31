@@ -1,4 +1,4 @@
-const googleCalendarService = require('../services/googleCalendarService');
+const googleCalendarService = require('../services/calendarService');
 const tokenStore = require('../utils/tokenStore');
 
 async function handleCalendarTool(req, res) {
