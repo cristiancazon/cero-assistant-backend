@@ -17,13 +17,14 @@ async function handleCalendarTool(req, res) {
     }
 
     if (!authTokens) {
-        return res.json({ 
-            result: "Error: No has iniciado sesión. Por favor entra a la web para conectar tu calendario." 
+        console.log("Tool Error: No auth tokens found in memory.");
+        return res.status(401).json({ 
+            result: "Error: No has iniciado sesión en Cero. Por favor entra a la web y conecta tu calendario." 
         });
     }
 
     try {
-        // ElevenLabs sends parameters flat in the body
+        console.log("Tool Action:", req.body.action);
         const { action, timeMin, timeMax, summary, startTime, endTime } = req.body;
         let result;
 
@@ -55,18 +56,18 @@ async function handleCalendarTool(req, res) {
             };
             // Note: createEvent in service returns a string message, NOT the event object directly
             const resultMsg = await googleCalendarService.createEvent(authTokens, eventData);
+            console.log("Tool Success Create:", resultMsg);
             result = resultMsg; // "Evento creado: https://..."
         } else {
-            result = "Lo siento, no entendí qué acción realizar con el calendario.";
+            result = "Acción no reconocida.";
         }
 
         console.log("Tool Result:", result);
-        // Return JSON with 'result' property as expected by ElevenLabs tool definition
         res.json({ result });
 
     } catch (error) {
-        console.error("Tool Error:", error);
-        res.json({ result: "Tuve un problema técnico al acceder a Google Calendar." });
+        console.error("Tool Error Catch:", error);
+        res.status(500).json({ result: "Hubo un error técnico en el servidor Cero." });
     }
 }
 
