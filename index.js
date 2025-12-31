@@ -24,6 +24,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 const webhookRoutes = require('./src/routes/webhookRoutes');
 const authRoutes = require('./src/routes/authRoutes');
 const dashboardRoutes = require('./src/routes/dashboardRoutes');
+const toolsRoutes = require('./src/routes/toolsRoutes');
 
 // Health check route - CRITICAL for Cloud Run
 app.get('/', (req, res) => {
@@ -32,9 +33,10 @@ app.get('/', (req, res) => {
 
 // Register routes
 app.use('/api/webhook', webhookRoutes);
-
 // Alias for ElevenLabs simple path
 app.use('/responses', webhookRoutes); 
+
+app.use('/api/tools', toolsRoutes); // New Tool Route
 
 // FIX: Also handle POST / (root) if ElevenLabs strips the path, or just in case
 app.post('/', (req, res, next) => {
