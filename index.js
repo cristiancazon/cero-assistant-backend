@@ -16,8 +16,9 @@ app.use((req, res, next) => {
     next();
 });
 
-// Parse JSON bodies with higher limit
-app.use(express.json({ limit: '10mb' }));
+// Parse JSON bodies with higher limit to handle ElevenLabs system prompts
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Import routes
 const webhookRoutes = require('./src/routes/webhookRoutes');
