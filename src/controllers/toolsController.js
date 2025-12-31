@@ -30,9 +30,12 @@ async function handleCalendarTool(req, res) {
         if (action === 'list_events') {
             // Default to today if no time provided
             const start = timeMin || new Date().toISOString();
-            // Default to end of day if no end provided? Or let service handle it.
-            // googleCalendarService.listEvents expects (auth, timeMin, timeMax)
-            const events = await googleCalendarService.listEvents(authTokens, start, timeMax);
+            
+            // Use listEventsJSON which returns raw objects
+            const events = await googleCalendarService.listEventsJSON(authTokens, { 
+                timeMin: start, 
+                timeMax: timeMax 
+            });
             
             if (!events || events.length === 0) {
                 result = "No encontré eventos en tu calendario para esas fechas.";
@@ -44,13 +47,15 @@ async function handleCalendarTool(req, res) {
                 }).join("\n");
             }
         } else if (action === 'create_event') {
+            // Service expects flattened args: summary, startTime, endTime
             const eventData = {
                 summary,
-                start: { dateTime: startTime },
-                end: { dateTime: endTime }
+                startTime: startTime,
+                endTime: endTime
             };
-            const event = await googleCalendarService.createEvent(authTokens, eventData);
-            result = `Listo. He agendado "${summary}" correctamente.`;
+            // Note: createEvent in service returns a string message, NOT the event object directly
+            const resultMsg = await googleCalendarService.createEvent(authTokens, eventData);
+            result = resultMsg; // "Evento creado: https://..."
         } else {
             result = "Lo siento, no entendí qué acción realizar con el calendario.";
         }
