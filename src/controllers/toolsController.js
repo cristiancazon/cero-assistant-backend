@@ -25,7 +25,14 @@ async function handleCalendarTool(req, res) {
 
     try {
         console.log("Tool Action:", req.body.action);
-        const { action, timeMin, timeMax, summary, startTime, endTime } = req.body;
+        // Robust parameter extraction handling different casing/naming conventions
+        const action = req.body.action;
+        const summary = req.body.summary || req.body.title || "Evento sin título";
+        const startTime = req.body.startTime || req.body.start_time || req.body.start;
+        const endTime = req.body.endTime || req.body.end_time || req.body.end;
+        const timeMin = req.body.timeMin || req.body.time_min;
+        const timeMax = req.body.timeMax || req.body.time_max;
+
         let result;
 
         if (action === 'list_events') {
@@ -48,6 +55,11 @@ async function handleCalendarTool(req, res) {
                 }).join("\n");
             }
         } else if (action === 'create_event') {
+            if (!startTime || !endTime) {
+                console.error("Missing start/end time. Body:", JSON.stringify(req.body));
+                return res.json({ result: "Error: No pude entender la fecha y hora de inicio o fin. Por favor repítelo." });
+            }
+
             // Service expects flattened args: summary, startTime, endTime
             const eventData = {
                 summary,
